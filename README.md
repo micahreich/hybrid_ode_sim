@@ -43,9 +43,15 @@ def continuous_dynamics(t: float, y: np.ndarray) -> np.ndarray:
 
 ### The Model Graph
 
-When multiple `DiscreteTimeModel` instances are to be evaluated at the same timestep (e.g. two discrete models both run at 100 Hz), the `ModelGraph` imposes the evaluation order. We use the convention `model_B.inputs_to(model_A)`, where `model_B`, `model_B` are `DiscreteTimeModel`, to indicate that the directed edge `model_B -> model_A` exists in the topological sorting of the `ModelGraph` in the case that `model_B` and `model_A` are evaluated during the same timestep. The `.inputs_to` function is only to be used when `model_A` and `model_B` are both `DiscreteTimeModel`.
+When multiple `DiscreteTimeModel` instances are to be evaluated at the same timestep (e.g. two discrete models both run at 100 Hz), the `ModelGraph` imposes the evaluation order. To indicate that a particular model `model_A` should receive feedback from / have access to the state `model_B`, we have two conventions:
 
-To indicate that a particular model `model_C` should receive feedback from / have access to the state `model_D`, use the convention `model_C.feedback_from(model_D)`. To get access to `model_D`'s state from the dynamics function of `model_C`, you may use the `self.input_models` instance member; this is a dict with keys as model names (strings) and values being that model's current/most recent state. 
+1. We use the convention `model_B.inputs_to(model_A)`, where `model_B`, `model_B` are `DiscreteTimeModel`, to indicate that the directed edge `model_B -> model_A` exists in the topological sorting of the `ModelGraph` in the case that `model_B` and `model_A` are evaluated during the same timestep. The `.inputs_to` function is only to be used when `model_A` and `model_B` are both `DiscreteTimeModel`.
+
+2. We use the convention `model_C.feedback_from(model_D)` to get access to `model_D`'s state from the dynamics function of `model_C`, but this does not impose any evaluation order.
+
+Think of `inputs_to` as a forward edge in a Simulink model, while `feedback_from` is a reverse edge.
+
+You may use the `self.input_models` instance member to access inputs' states. This is a dict with keys as model names (strings) and values being that model's current/most recent state. 
 
 *Note:* There is a zero-order hold on discrete system states between consecutive evaluations if the discrete model's state is queried by other systems in that in-between time.
 
