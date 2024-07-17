@@ -1,4 +1,4 @@
-# Hybrid ODE Sim 
+# Hybrid ODE Simulator
 <p align="center"><img src="/hybrid_ode_sim/docs/spring_animation.gif" alt="Spring GIF" width="75%"></p>
 
 **Hybrid ODE Sim** is a Python package designed to solve systems of ordinary differential equations (ODEs) that involve both continuous and discrete dynamics. That is, dynamics of the forms:
