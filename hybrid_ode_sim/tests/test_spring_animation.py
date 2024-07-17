@@ -46,9 +46,6 @@ if __name__ == "__main__":
     
     fig, ax = plt.subplots(1, 1, figsize=(6, 2))
     ax.set_aspect('equal', adjustable='box')
-
-    # ax.set_xlim([-1, 2])
-    # ax.set_ylim([0, 0.3])
     
     env = PlotEnvironment(fig, ax, t_range, frame_rate=20, t_start=0.0)
     block_on_spring = BlockOnSpring(env, spring, wall_x=0.0)

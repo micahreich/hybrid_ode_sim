@@ -19,14 +19,14 @@ class BlockOnSpring(PlotElement):
         
         self.block_width, self.block_height = 0.1, 0.1
     
-        self.spring_plot, = self.env.ax.plot([], [], lw=1, color='gray')
-        self.block_plot = patches.Rectangle((self.ys[0, 0], 0.0), self.block_width, self.block_height, linewidth=1, color='red')
+        self.spring_plot, = self.env.ax.plot([], [], lw=1, color='gray', zorder=1)
+        self.block_plot = patches.Rectangle((self.ys[0, 0], 0.0), self.block_width, self.block_height, linewidth=1, color='red', zorder=2)
         self.env.ax.add_patch(self.block_plot)
 
         # Plot the wall and ground
         max_x = max(self.ys[:, 0]) * 1.1
-        self.env.ax.plot([self.wall_x, self.wall_x], [0, 2 * self.block_height], color='black', lw=2)
-        self.env.ax.plot([self.wall_x, max_x], [0, 0], color='black', lw=2)
+        self.env.ax.plot([self.wall_x, self.wall_x], [0, 2 * self.block_height], color='black', lw=2, zorder=0)
+        self.env.ax.plot([self.wall_x, max_x], [0, 0], color='black', lw=2, zorder=0)
     
     def update(self, t):
         x, v = self.history(t)
