@@ -8,15 +8,15 @@ $$
 $$
 
 $$
-x_{k+1} = f(t_k, x_k) \tag{(2) Discrete} 
-\quad 
+x_{k+1} = f(t_k, x_k) \tag{(2) Discrete}
+\quad
 $$
 
 This solver is particularly useful for simulations that require handling events or state changes at specific points in time while integrating continuous dynamics in between these events. This commonly occurs in simulating robots and their control/planning systems. The package is meant to be very simple and leverages common numerical integrators to provide accurate and efficient solutions for hybrid systems.
 
 ## Contents
 
-The package contains four main building blocks: `ContinuousTimeModel`, `DiscreteTimeModel`, `ModelGraph`, and `Simulator`. 
+The package contains four main building blocks: `ContinuousTimeModel`, `DiscreteTimeModel`, `ModelGraph`, and `Simulator`.
 
 ### Examples
 For examples of how to use different kinds of models and the simulator class, please see [the test notebooks](/hybrid_ode_sim/tests/).
@@ -28,18 +28,18 @@ def discrete_dynamics(self, t: float, y: Any) -> Any:
     y_next = ...
     return y_next
 ```
-`DiscreteTimeModel` constructors are provided with an initial state `y0`, a string `name`, their integral evaluation frequency `sample_rate`, an optional `params` object, and an optional logging level. 
+`DiscreteTimeModel` constructors are provided with an initial state `y0`, a string `name`, their integral evaluation frequency `sample_rate`, an optional `params` object, and an optional logging level.
 
 
 ### Continuous Time Models
 Between consecutive evaluations of a `DiscreteTimeModel`, all `ContinuousTimeModel` instances are integrated simultaneously using a numerical integrator like RK4 (other integrators are available as well). Implementing a `ContinuousTimeModel` requires overriding the function:
 ```python
-def continuous_dynamics(t: float, y: np.ndarray) -> np.ndarray: 
+def continuous_dynamics(t: float, y: np.ndarray) -> np.ndarray:
     ydot = ...
-    return ydot 
+    return ydot
 ```
 
-`ContinuousTimeModel` constructors are provided with an initial state `y0`, a string `name`, an optional `params` object, and an optional logging level. 
+`ContinuousTimeModel` constructors are provided with an initial state `y0`, a string `name`, an optional `params` object, and an optional logging level.
 
 ### The Model Graph
 
@@ -51,7 +51,7 @@ When multiple `DiscreteTimeModel` instances are to be evaluated at the same time
 
 Think of `inputs_to` as a forward edge in a Simulink model, while `feedback_from` is a reverse edge.
 
-You may use the `self.input_models` instance member to access inputs' states. This is a dict with keys as model names (strings) and values being that model's current/most recent state. 
+You may use the `self.input_models` instance member to access inputs' states. This is a dict with keys as model names (strings) and values being that model's current/most recent state.
 
 *Note:* There is a zero-order hold on discrete system states between consecutive evaluations if the discrete model's state is queried by other systems in that in-between time.
 
@@ -87,7 +87,7 @@ An instance of an adaptive Runge-Kutta implementation can be provided as the int
 An instance of a fixed-step Runge-Kutta implementation can be provided as the integrator to a simulator. Currently implemented is RK4, but adding other methods is as easy as providing the Butcher Tableau. Other integrators can be implemented by inheriting from the `Integrator` class.
 
 ## Rendering
-The package also includes some rendering tooling which animates the results of simulations. Matplotlib animations can be created by creating and rendering `PlotElements` which grab data from system instances. Multiple plot elements can be combined into one `PlotEnvironment`, rendered, and also saved as a video or GIF. 
+The package also includes some rendering tooling which animates the results of simulations. Matplotlib animations can be created by creating and rendering `PlotElements` which grab data from system instances. Multiple plot elements can be combined into one `PlotEnvironment`, rendered, and also saved as a video or GIF.
 
 ## TODO
 - [ ] Implement zero-crossing detection for early stopping
