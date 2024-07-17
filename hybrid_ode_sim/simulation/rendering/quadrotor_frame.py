@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from spatialmath.base import q2r, r2q, rotz, qunit, qslerp, qconj, rotz, rotx, roty
 from hybrid_ode_sim.systems.quadrotor.constants import decompose_state, compose_state
 from hybrid_ode_sim.simulation.rendering.base import PlotEnvironment, PlotElement
-from hybrid_ode_sim.simulation.utils import BaseModel
+from hybrid_ode_sim.simulation.base import BaseModel
 from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
 from typing import Tuple, Optional
 

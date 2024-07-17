@@ -3,7 +3,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Union, Any, Callable, TypeVar
 from fractions import Fraction
-from hybrid_ode_sim.simulation.utils import ContinuousTimeModel
+from hybrid_ode_sim.simulation.base import ContinuousTimeModel
 from hybrid_ode_sim.utils.logging_tools import LogLevel, Logger
 
 

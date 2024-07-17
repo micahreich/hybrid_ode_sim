@@ -30,13 +30,9 @@ class PlotEnvironment:
             
     def render(self, plot_elements: List, show_time=False,
                save=False, save_path=None):
-        if show_time:
-            text_position = self.fig.text(0.5, 0.95, '', ha='center', va='top', color='black',
-                            bbox={'facecolor': 'white', 'alpha': 1.0, 'pad': 10, 'edgecolor': 'none'})
-            
         def env_update(t):
             if show_time:
-                text_position.set_text(f't={t : .1f}s')  # Update the frame index
+                self.ax.set_title(f't={t : .1f}s')
                 
             for element in plot_elements:
                 element.update(t)
@@ -66,8 +62,6 @@ class PlotEnvironment:
             self.logger.info(f"Saving animation to {save_path}")
             
             base_path, _ = os.path.splitext(save_path)
-        
-            # For animation saving to work, ensure ffmpeg is installed and on the PATH env var
             ani.save(f'{base_path}.gif', writer=FFMpegWriter(fps=int(self.frame_rate)))
         else:
             plt.show()

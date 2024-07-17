@@ -8,7 +8,7 @@ from typing import List, Tuple, Any, Optional, Union, Type
 from functools import reduce
 from enum import Enum
 from hybrid_ode_sim.simulation.ode_solvers.solver_base import Integrator
-from hybrid_ode_sim.simulation.utils import BaseModel, DiscreteTimeModel, ContinuousTimeModel
+from hybrid_ode_sim.simulation.base import BaseModel, DiscreteTimeModel, ContinuousTimeModel
 from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
 
 
