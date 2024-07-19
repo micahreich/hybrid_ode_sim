@@ -42,17 +42,23 @@ class PlotEnvironment:
             self.t_end = t_end
 
     def render(self, plot_elements: List, show_time=False, save=False, save_path=None):
+        frame_times = np.arange(self.t_start, self.t_end, 1 / self.frame_rate)
+        
         def env_update(t):
             if show_time:
                 self.ax.set_title(f"t={t : .1f}s")
 
             for element in plot_elements:
                 element.update(t)
+            
+            if t == frame_times[-1]:
+                for element in plot_elements:
+                    element.reset()
 
         ani = FuncAnimation(
             self.fig,
             env_update,
-            frames=np.arange(self.t_start, self.t_end, 1 / self.frame_rate),
+            frames=frame_times,
             interval=1 / self.frame_rate * 1e3,
             repeat=not save,
         )
@@ -88,5 +94,6 @@ class PlotElement:
         self.env = env
         self.logger = Logger(logging_level, f"{self.__class__.__name__}")
 
-    def update(self, t):
-        return
+    def update(self, t): return
+    
+    def reset(self): return
