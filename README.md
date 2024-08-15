@@ -72,6 +72,8 @@ git clone https://github.com/micahreich/hybrid_ode_sim.git  # for https
 git clone git@github.com:micahreich/hybrid_ode_sim.git      # for ssh
 ```
 
+Install pip requirements from the `requirements.txt`
+
 Now, when you wish to use `hybrid_ode_sim`, ideally from within a virtual environment, just run:
 ```bash
 pip install -e /path/to/hybrid_ode_sim # install `hybrid_ode_sim` as a pip package along with requirements
