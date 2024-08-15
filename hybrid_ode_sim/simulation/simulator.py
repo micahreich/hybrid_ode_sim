@@ -16,6 +16,16 @@ from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
 
 class ModelGraph:
     def __init__(self, models: List[BaseModel]):
+        model_names = set()
+        
+        # Sanity check the models to ensure no duplicates are found
+        for model in model_names:
+            if model.name in model_names:
+                raise ValueError(
+                    f"Model name '{model.name}' is not unique in the model graph!"
+                )
+            model_names.add(model.name)
+        
         self.enumerated_models = {model: i for (i, model) in enumerate(models)}
         self.adj = {model: [] for model in models}
 
