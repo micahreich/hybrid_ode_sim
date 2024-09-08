@@ -20,13 +20,6 @@ class SpringParams:
     b: float
 
 
-@dataclass
-class PIDControllerParams:
-    kP: float
-    kD: float
-    kI: float
-
-
 class Spring(ContinuousTimeModel):
     def __init__(self, y0, params: SpringParams):
         super().__init__(y0, name="spring_mass_damper", params=params)
@@ -42,7 +35,7 @@ class Spring(ContinuousTimeModel):
 
 
 if __name__ == "__main__":
-    spring = Spring(y0=np.array([1.0, 0.0]), params=SpringParams(k=100, m=1, b=5))
+    spring = Spring(y0=np.array([1.0, 0.0]), params=SpringParams(k=100, m=1, b=20))
 
     model_graph = ModelGraph(models=[spring])
 
