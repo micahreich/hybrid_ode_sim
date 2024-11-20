@@ -16,93 +16,140 @@ WriteBackModelY = Callable[[np.ndarray], None]
 
 class Integrator:
     def __init__(self, logging_level: LogLevel):
-        self.f_combined: CombinedContinuousDynamics = None
-        self.y_validate_combined: CombinedYValidate = None
-        self.record_state_combined: CombinedRecordState = None
-        self.write_back_model_y: WriteBackModelY = None
-
         self.models = None
         self.logger = Logger(logging_level, f"{self.__class__.__name__}")
         self.models_registered = False
 
     def register_models(self, models: List[ContinuousTimeModel]):
         self.models = models
-        (
-            self.f_combined,
-            self.y_validate_combined,
-            self.record_state_combined,
-            self.write_back_model_y,
-        ) = Integrator._get_combined_fns(self.models)
-        self.models_registered = True
 
-    @staticmethod
-    def _model_list_validate(model_state_dimensions: np.ndarray):
-        return np.all(model_state_dimensions[1:] > 0)
-
-    @staticmethod
-    def _get_combined_fns(
-        models: List[ContinuousTimeModel],
-    ) -> Tuple[
-        CombinedContinuousDynamics,
-        CombinedYValidate,
-        CombinedRecordState,
-        WriteBackModelY,
-    ]:
         model_state_dimensions = np.array([0] + [model.y.size for model in models])
         if not Integrator._model_list_validate(model_state_dimensions):
             raise AttributeError(
                 "All ContinuousTimeModel models must have a non-empty initial state"
             )
 
-        model_state_dimensions = np.cumsum(model_state_dimensions, dtype=int)
+        self.model_state_dimensions = np.cumsum(model_state_dimensions, dtype=int)
 
-        def _combined_continuous_dynamics(t, y_stacked):
-            stacked_derivative = np.empty_like(y_stacked)
-            _write_back_model_y(y_stacked)
+        # (
+        #     self.f_combined,
+        #     self.y_validate_combined,
+        #     self.record_state_combined,
+        #     self.write_back_model_y,
+        # ) = Integrator._get_combined_fns(self.models)
+        self.models_registered = True
 
-            for i, model in enumerate(models):
-                u, v = model_state_dimensions[i], model_state_dimensions[i + 1]
-                y = y_stacked[u:v]
+    @staticmethod
+    def _model_list_validate(model_state_dimensions: np.ndarray):
+        return np.all(model_state_dimensions[1:] > 0)
 
-                model_derivative = model.continuous_dynamics(t, y)
-                stacked_derivative[u:v] = model_derivative
+    def f_combined(self, t, y_stacked):
+        stacked_derivative = np.empty_like(y_stacked)
+        self.write_back_model_y(y_stacked)
 
-            return stacked_derivative
+        for i, model in enumerate(self.models):
+            u, v = self.model_state_dimensions[i], self.model_state_dimensions[i + 1]
+            y = y_stacked[u:v]
 
-        def _combined_y_validate(y_stacked):
-            validated_y_stacked = np.empty_like(y_stacked)
+            model_derivative = model.continuous_dynamics(t, y)
+            stacked_derivative[u:v] = model_derivative
 
-            for i, model in enumerate(models):
-                model_output = model.output_validate(
-                    y_stacked[model_state_dimensions[i] : model_state_dimensions[i + 1]]
-                )
-                validated_y_stacked[
-                    model_state_dimensions[i] : model_state_dimensions[i + 1]
-                ] = model_output
+        return stacked_derivative
 
-            return validated_y_stacked
+    def y_validate_combined(self, y_stacked):
+        validated_y_stacked = np.empty_like(y_stacked)
 
-        def _combined_record_state(t, combined_state):
-            for i, model in enumerate(models):
-                model.record_state(
-                    t,
-                    combined_state[
-                        model_state_dimensions[i] : model_state_dimensions[i + 1]
-                    ],
-                )
-
-        def _write_back_model_y(combined_state):
-            for i, model in enumerate(models):
-                model.y = combined_state[
-                    model_state_dimensions[i] : model_state_dimensions[i + 1]
+        for i, model in enumerate(self.models):
+            model_output = model.output_validate(
+                y_stacked[
+                    self.model_state_dimensions[i] : self.model_state_dimensions[i + 1]
                 ]
+            )
+            validated_y_stacked[
+                self.model_state_dimensions[i] : self.model_state_dimensions[i + 1]
+            ] = model_output
 
-        return (
-            _combined_continuous_dynamics,
-            _combined_y_validate,
-            _combined_record_state,
-            _write_back_model_y,
-        )
+        return validated_y_stacked
+
+    def record_state_combined(self, t, combined_state):
+        for i, model in enumerate(self.models):
+            model.record_state(
+                t,
+                combined_state[
+                    self.model_state_dimensions[i] : self.model_state_dimensions[i + 1]
+                ],
+            )
+
+    def write_back_model_y(self, combined_state):
+        for i, model in enumerate(self.models):
+            model.y = combined_state[
+                self.model_state_dimensions[i] : self.model_state_dimensions[i + 1]
+            ]
+
+    # @staticmethod
+    # def _get_combined_fns(
+    #     models: List[ContinuousTimeModel],
+    # ) -> Tuple[
+    #     CombinedContinuousDynamics,
+    #     CombinedYValidate,
+    #     CombinedRecordState,
+    #     WriteBackModelY,
+    # ]:
+    #     model_state_dimensions = np.array([0] + [model.y.size for model in models])
+    #     if not Integrator._model_list_validate(model_state_dimensions):
+    #         raise AttributeError(
+    #             "All ContinuousTimeModel models must have a non-empty initial state"
+    #         )
+
+    #     model_state_dimensions = np.cumsum(model_state_dimensions, dtype=int)
+
+    #     def _combined_continuous_dynamics(t, y_stacked):
+    #         stacked_derivative = np.empty_like(y_stacked)
+    #         _write_back_model_y(y_stacked)
+
+    #         for i, model in enumerate(models):
+    #             u, v = model_state_dimensions[i], model_state_dimensions[i + 1]
+    #             y = y_stacked[u:v]
+
+    #             model_derivative = model.continuous_dynamics(t, y)
+    #             stacked_derivative[u:v] = model_derivative
+
+    #         return stacked_derivative
+
+    #     def _combined_y_validate(y_stacked):
+    #         validated_y_stacked = np.empty_like(y_stacked)
+
+    #         for i, model in enumerate(models):
+    #             model_output = model.output_validate(
+    #                 y_stacked[model_state_dimensions[i] : model_state_dimensions[i + 1]]
+    #             )
+    #             validated_y_stacked[
+    #                 model_state_dimensions[i] : model_state_dimensions[i + 1]
+    #             ] = model_output
+
+    #         return validated_y_stacked
+
+    #     def _combined_record_state(t, combined_state):
+    #         for i, model in enumerate(models):
+    #             model.record_state(
+    #                 t,
+    #                 combined_state[
+    #                     model_state_dimensions[i] : model_state_dimensions[i + 1]
+    #                 ],
+    #             )
+
+    #     def _write_back_model_y(combined_state):
+    #         for i, model in enumerate(models):
+    #             model.y = combined_state[
+    #                 model_state_dimensions[i] : model_state_dimensions[i + 1]
+    #             ]
+
+    #     return (
+    #         _combined_continuous_dynamics,
+    #         _combined_y_validate,
+    #         _combined_record_state,
+    #         _write_back_model_y,
+    #     )
 
     def solve(self, t_range: Tuple[float, float]):
         raise NotImplementedError

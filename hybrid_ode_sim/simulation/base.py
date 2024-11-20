@@ -2,11 +2,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from fractions import Fraction
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
+import bisect
 import numpy as np
 from scipy.interpolate import interp1d
 
 from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
+from multiprocessing import Process, Event, Manager
 
 
 def ensure_iterable(x: Any) -> List[Any]:
@@ -37,24 +38,47 @@ class BaseModel:
         )  # List of models which receive input from this model, will get deleted
 
         self.y = y0
-        self.t_history = []
-        self.y_history = []
+
+        self.t_history = None
+        self.y_history = None
 
         self.logger = Logger(logging_level, f"{self.__class__.__name__}")
 
-    def history(
-        self, interpolator_kind=None
-    ) -> Tuple[np.ndarray, np.ndarray, interp1d]:
-        ts = np.array(self.t_history)
-        ys = np.array(self.y_history)
+    def initialize_history_buffers(self, realtime=False, manager=None):
+        if realtime:
+            if not manager:
+                raise ValueError("Realtime mode requires a multiprocessing manager.")
 
-        # Linear interpolation on states for continuous-time models, zero-order hold for discrete-time models
-        if interpolator_kind is None:
-            interpolator_kind = (
-                "linear" if isinstance(self, ContinuousTimeModel) else "previous"
-            )
+            self.t_history = manager.list()
+            self.y_history = manager.list()
+        else:
+            self.t_history = []
+            self.y_history = []
 
-        return ts, ys, interp1d(ts, ys, axis=0, kind=interpolator_kind)
+    def history_interpolator(self, t: float) -> Any:
+        if len(self.t_history) == 0:
+            # print(f"Model {self.name} has no history.")
+            return self.y
+
+        t_idx = bisect.bisect_left(self.t_history, t)
+        i_prev = np.clip(t_idx - 1, 0, len(self.t_history) - 1, dtype=np.int64)
+        i_next = np.clip(t_idx, 0, len(self.t_history) - 1, dtype=np.int64)
+
+        if i_prev == i_next:
+            return self.y_history[i_prev]
+
+        scale_prev = (self.t_history[i_next] - t) / (
+            self.t_history[i_next] - self.t_history[i_prev]
+        )
+        scale_next = 1.0 - scale_prev
+
+        y_prev = np.array(self.y_history[i_prev])
+        y_next = np.array(self.y_history[i_next])
+
+        return y_prev * scale_prev + y_next * scale_next
+
+    def history(self) -> Tuple[List[float], List[Any], Callable[[float], Any]]:
+        return self.t_history, self.y_history, self.history_interpolator
 
     def record_state(self, t, y):
         self.t_history.append(t)

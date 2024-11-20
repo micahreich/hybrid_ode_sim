@@ -50,8 +50,6 @@ class FixedStepRK(RKIntegrator):
         y_combined = y0_combined
 
         while t < t_f:
-            self.record_state_combined(t, y_combined)
-
             h = self._validate_h(t_range, t, self.h)
             K = self._compute_K(self.f_combined, t, y_combined, h)
 
@@ -61,6 +59,7 @@ class FixedStepRK(RKIntegrator):
 
             # Put the states back into `y` for each
             self.write_back_model_y(y_new_combined)
+            self.record_state_combined(t, y_new_combined)
 
             t += h
             y_combined = y_new_combined

@@ -219,13 +219,13 @@ class AdaptiveStepRK(RKIntegrator):
         y_combined = y0_combined
 
         while t < t_f:
-            self.record_state_combined(t, y_combined)
             y_new_combined, next_h_whole, h_used = self._step(
                 t_range, t, h, y_combined, self.f_combined, self.y_validate_combined
             )
 
             # Put the states back into `y` for each model
             self.write_back_model_y(y_new_combined)
+            self.record_state_combined(t, y_combined)
 
             t += h_used  # Increment timestep by the h used
             y_combined = y_new_combined  # Update the state to the new state

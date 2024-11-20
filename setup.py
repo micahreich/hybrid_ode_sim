@@ -4,7 +4,7 @@ setup(
     name="hybrid_ode_sim",
     version="0.1",
     packages=find_packages(),
-    install_requires=[], # Install requirements with pip install -r requirements.txt
+    install_requires=[],  # Install requirements with pip install -r requirements.txt
     author="Micah Reich",
     author_email="micahreich02@gmail.com",
     description="Hybrid continuous/discrete ordinary differential equation solver written in Python",
