@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid_ode_sim"
+version = "0.1.0"
+description = "Hybrid continuous/discrete ordinary differential equation solver written in Python"
+authors = [
+    { name = "Micah Reich", email = "micahreich02@gmail.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+keywords = ["ode", "simulator", "library"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+]
