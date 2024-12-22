@@ -14,9 +14,11 @@ readme = "README.md"
 keywords = ["ode", "simulator", "library"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "numpy",
 ]
+requires-python = ">=3.9"
