@@ -19,33 +19,6 @@ from hybrid_ode_sim.simulation.ode_solvers.solver_base import Integrator
 from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
 
 
-class RealtimeSimRenderMsg:
-    pass
-
-
-class RealtimeSimPauseMsg(RealtimeSimRenderMsg):
-    pass
-
-
-class RealtimeSimResumeMsg(RealtimeSimRenderMsg):
-    pass
-
-
-class RealtimeSimTerminateMsg(RealtimeSimRenderMsg):
-    pass
-
-
-class RealtimeSimQueryModelState(RealtimeSimRenderMsg):
-    def __init__(self, name: str):
-        self.name = name
-
-
-class RealtimeSimModelState(RealtimeSimRenderMsg):
-    def __init__(self, name: str, y: Any):
-        self.name = name
-        self.y = y
-
-
 class ModelGraph:
     def __init__(self, models: List[BaseModel]):
         model_names = set()
@@ -67,7 +40,7 @@ class ModelGraph:
                 model.children_models
             )  # Remove children_models attribute since we don't need it anymore
         self.eval_order = self._topo_sort()
-        
+
         self.continuous_time_models = list(
             filter(
                 lambda model: isinstance(model, ContinuousTimeModel),
@@ -80,6 +53,10 @@ class ModelGraph:
                 self.enumerated_models.keys(),
             )
         )
+
+    def initialize_history_buffers(self, proc_manager=None):
+        for model in self.enumerated_models.keys():
+            model.initialize_history_buffers(proc_manager=proc_manager)
 
     def _topo_sort(self):
         def _topo_sort_recurse(v, visited, stack):
@@ -187,13 +164,30 @@ class Simulator:
     def is_terminated(self):
         return self._t is not None and self._terminated_flag
 
+    def _wait_on_paused_flag(self, sim_progress_value):
+        SLEEP_TIME_MS = 10
+
+        while True:
+            if (
+                sim_progress_value.value
+                == SimulationEnvironment.ProgressType.PAUSED.value
+            ):
+                time.sleep(SLEEP_TIME_MS / 1e3)
+            else:
+                break
+
     def simulate(
         self,
         t_range: Tuple[Fraction, Fraction],
         realtime: bool = False,  # Required for realtime simulation
-        sim_termination_event=None,  # Required for realtime simulation
-        sim_latest_timestep=None,  # Required for realtime simulation
+        sim_progress_value=None,  # Required for realtime simulation
+        sim_latest_timestep_value=None,  # Required for realtime simulation
     ):
+        if realtime:
+            assert (sim_progress_value is not None) and (
+                sim_latest_timestep_value is not None
+            ), "Real-time simulation requires progress and latest timestep values to be passed in!"
+
         self._t = None
         self._terminated_flag = False
 
@@ -226,9 +220,21 @@ class Simulator:
         clock.reset()
         start_time = clock()
 
+        accumulated_pause_time = 0.0
+
         for i in range(len(simulation_timesteps)):
-            if sim_termination_event and sim_termination_event.is_set():
-                break
+            if sim_progress_value:
+                with sim_progress_value.get_lock():
+                    if (
+                        sim_progress_value.value
+                        == SimulationEnvironment.ProgressType.TERMINATED.value
+                    ):
+                        break
+
+                pause_wait_start_time = clock()
+
+                self._wait_on_paused_flag(sim_progress_value)
+                accumulated_pause_time += clock() - pause_wait_start_time
 
             t = simulation_timesteps[i]
             self._t = t
@@ -238,8 +244,6 @@ class Simulator:
                 if i + 1 < len(simulation_timesteps)
                 else t_range[1]
             )
-
-            delta_t = t_next - t
 
             try:
                 self._step(t, t_next)
@@ -252,10 +256,12 @@ class Simulator:
             self._t = t_next
 
             if realtime:
-                if sim_latest_timestep:
-                    sim_latest_timestep.value = float(self._t)
+                with sim_latest_timestep_value.get_lock():
+                    sim_latest_timestep_value.value = float(self._t)
 
-                next_real_time_deadline = start_time + float(t_next - t_range[0])
+                next_real_time_deadline = (
+                    start_time + accumulated_pause_time + float(t_next - t_range[0])
+                )
                 time_to_sleep = next_real_time_deadline - clock()
 
                 if time_to_sleep > 0:
@@ -265,115 +271,110 @@ class Simulator:
                         f"Simulation is running behind real-time! ({-time_to_sleep:.2f} s behind)"
                     )
 
-        elapsed_time = clock() - start_time
-        self.logger.info(
-            f"Simulation Complete! Elapsed Time: {elapsed_time:.2f} s ({(t_range[1] - t_range[0]) / elapsed_time:.2f}x real-time)"
-        )
-        
-        if sim_termination_event and not sim_termination_event.is_set():
-            for model in self.model_graph.adj.keys():
-                model.record_state(t_range[1], model.y)
+        for model in self.model_graph.adj.keys():
+            model.record_state(self._t, model.y)
 
-            # Signal to the rendering process that the simulation has terminated
-            if sim_termination_event is not None:
-                sim_termination_event.set()
-        elif sim_termination_event:
-            self.logger.info(f"Simulation Interrupted")
+        elapsed_time = clock() - start_time - accumulated_pause_time
 
-            for model in self.model_graph.adj.keys():
-                model.record_state(t_range[1], model.y)
+        if sim_progress_value:
+            with sim_progress_value.get_lock():
+                if (
+                    sim_progress_value.value
+                    != SimulationEnvironment.ProgressType.TERMINATED.value
+                ):
+                    self.logger.info(
+                        f"Simulation Complete! Elapsed Time: {elapsed_time:.2f} s ({(t_range[1] - t_range[0]) / elapsed_time:.2f}x real-time)"
+                    )
+                else:
+                    self.logger.info(
+                        "Simulation terminated early by user after {:.2f} s".format(
+                            elapsed_time
+                        )
+                    )
+
+                sim_progress_value.value = (
+                    SimulationEnvironment.ProgressType.TERMINATED.value
+                )
+        else:
+            self.logger.info(
+                f"Simulation Complete! Elapsed Time: {elapsed_time:.2f} s ({(t_range[1] - t_range[0]) / elapsed_time:.2f}x real-time)"
+            )
 
         self._terminated_flag = True
 
 
 class SimulationEnvironment:
+    class ProgressType(Enum):
+        IN_PROGRESS = 0
+        PAUSED = 1
+        TERMINATED = 2
+
     def __init__(self, simulator: Simulator, plot_env=None):
         self.simulator = simulator
         self.plot_env = plot_env
 
-    def simulation_process(
+    def _plotting_process(
         self,
-        t_range,
-        realtime,
-        sim_termination_event=None,
-        sim_latest_timestep=None,
-    ):
-        self.simulator.simulate(
-            t_range=t_range,
-            realtime=realtime,
-            sim_termination_event=sim_termination_event,
-            sim_latest_timestep=sim_latest_timestep,
-        )
-    
-    def plotting_process(
-        self,
-        t_range,
-        sim_termination_event,
-        sim_latest_timestep,
-        show_time,
-    ):
+        sim_progress_value,
+        sim_latest_timestep_value,
+        show_time: bool,
+    ) -> None:
         self.plot_env.render_realtime(
-            t_range=t_range,
-            sim_termination_event=sim_termination_event,
-            sim_latest_timestep=sim_latest_timestep,
+            sim_progress_value=sim_progress_value,
+            sim_latest_timestep_value=sim_latest_timestep_value,
             show_time=show_time,
         )
-
-    def _initialize_history_buffers(self, realtime=False, manager=None):
-        for model in self.simulator.model_graph.enumerated_models.keys():
-            model.initialize_history_buffers(realtime=realtime, manager=manager)
 
     def run_simulation(
         self,
         t_range: Tuple[Fraction, Fraction],
         realtime: bool = False,
-        show_time: bool = False
-    ):
-        if realtime and self.plot_env is not None:
+        show_time: bool = False,
+    ) -> None:
+        if realtime:
             with Manager() as manager:
-                self._initialize_history_buffers(realtime=realtime, manager=manager)
-
-                sim_termination_event = manager.Event()
-                sim_latest_timestep = manager.Value("d", float(t_range[0]))
-
-                # p = Process(
-                #     target=self.simulation_process,
-                #     args=(
-                #         t_range,
-                #         realtime,
-                #         sim_termination_event,
-                #         sim_latest_timestep,
-                #     ),
-                # )
-                p = Process(
-                    target=self.plotting_process,
-                    args=(
-                        t_range,
-                        sim_termination_event,
-                        sim_latest_timestep,
-                        show_time,
-                    ),
-                )
-                p.start()
-
-                self.simulation_process(
-                    t_range=t_range,
-                    realtime=realtime,
-                    sim_termination_event=sim_termination_event,
-                    sim_latest_timestep=sim_latest_timestep
+                self.simulator.model_graph.initialize_history_buffers(
+                    proc_manager=manager
                 )
 
-                p.join()
-        elif realtime and self.plot_env is None:
-            self._initialize_history_buffers(realtime=realtime)
-            self.simulation_process(t_range=t_range, realtime=realtime)
-        elif not realtime and self.plot_env is not None:
-            self._initialize_history_buffers(realtime=realtime)
-            self.simulation_process(t_range=t_range, realtime=realtime)
-            self.plot_env.render(show_time=show_time)
+                sim_progress_value = Value(
+                    "i", SimulationEnvironment.ProgressType.IN_PROGRESS.value
+                )
+                sim_latest_timestep_value = Value("d", float(t_range[0]))
+
+                if self.plot_env is not None:
+                    p = Process(
+                        target=self._plotting_process,
+                        args=(
+                            sim_progress_value,
+                            sim_latest_timestep_value,
+                            show_time,
+                        ),
+                    )
+
+                    p.start()
+
+                    self.simulator.simulate(
+                        t_range=t_range,
+                        realtime=realtime,
+                        sim_progress_value=sim_progress_value,
+                        sim_latest_timestep_value=sim_latest_timestep_value,
+                    )
+
+                    p.join()
+                else:
+                    self.simulator.simulate(
+                        t_range=t_range,
+                        realtime=realtime,
+                        sim_progress_value=sim_progress_value,
+                        sim_latest_timestep_value=sim_latest_timestep_value,
+                    )
         else:
-            self._initialize_history_buffers(realtime=realtime)
-            self.simulation_process(t_range=t_range, realtime=realtime)
+            self.simulator.model_graph.initialize_history_buffers()
+            self.simulator.simulate(t_range=t_range, realtime=realtime)
+
+            if self.plot_env is not None:
+                self.plot_env.render(show_time=show_time)
 
 
 # if __name__ == "__main__":

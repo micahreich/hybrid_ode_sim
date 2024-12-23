@@ -44,13 +44,10 @@ class BaseModel:
 
         self.logger = Logger(logging_level, f"{self.__class__.__name__}")
 
-    def initialize_history_buffers(self, realtime=False, manager=None):
-        if realtime:
-            if not manager:
-                raise ValueError("Realtime mode requires a multiprocessing manager.")
-
-            self.t_history = manager.list()
-            self.y_history = manager.list()
+    def initialize_history_buffers(self, proc_manager=None):
+        if proc_manager is not None:
+            self.t_history = proc_manager.list()
+            self.y_history = proc_manager.list()
         else:
             self.t_history = []
             self.y_history = []

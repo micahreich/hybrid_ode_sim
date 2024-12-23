@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib.animation import FFMpegWriter, FuncAnimation, PillowWriter
 
 from hybrid_ode_sim.utils.logging_tools import Logger, LogLevel
-from hybrid_ode_sim.simulation.simulator import SimulationClock
+from hybrid_ode_sim.simulation.simulator import SimulationEnvironment
 from types import SimpleNamespace
 
 
@@ -16,7 +16,7 @@ class PlotElement:
             self.init_environment(env)
         else:
             self.env = None
-            
+
         self.logger = Logger(logging_level, f"{self.__class__.__name__}")
 
     def update(self, t):
@@ -53,7 +53,7 @@ class PlotEnvironment:
         else:
             assert (
                 sim_t_range[0] <= t_start < sim_t_range[1]
-            ), "The start time must be within the simulation time range."
+            ), "The start time must be within the simulation time range: [t_0, t_f)"
             self.t_start = t_start
 
         if t_end is None:
@@ -61,45 +61,63 @@ class PlotEnvironment:
         else:
             assert (
                 self.t_start < t_end <= sim_t_range[1]
-            ), "The end time must be within the simulation time range."
+            ), "The end time must be within the simulation time range: (t_0, t_f]"
             self.t_end = t_end
 
-    def attach_element(self, element: PlotElement):
+    def attach_element(self, element: PlotElement) -> "PlotEnvironment":
         element.init_environment(self)
         self.plot_elements.append(element)
 
         return self
 
     def render_realtime(
-        self, sim_termination_event, sim_latest_timestep, t_range, show_time=False
+        self, sim_progress_value, sim_latest_timestep_value, show_time=False
     ):
-        frame_reset_data = SimpleNamespace(t=t_range[0], frame_idx=0)
+        latest_rendered_frame_data = SimpleNamespace(t=self.t_start, frame_idx=0)
+        latest_progress_value_type = None
 
         interval_s = 1 / self.frame_rate
         interval_ms = interval_s * 1e3
 
-        def env_update(frame_idx, frame_reset_data):
-            is_realtime_terminated = sim_termination_event.is_set()
+        def env_update(frame_idx, latest_rendered_frame_data):
+            with sim_progress_value.get_lock():
+                latest_progress_type = sim_progress_value.value
 
-            # with sim_latest_timestep.get_lock():  # Lock to ensure safe read
-            if not np.allclose(sim_latest_timestep.value, frame_reset_data.t):
-                frame_reset_data.t = sim_latest_timestep.value
-                frame_reset_data.frame_idx = frame_idx
-                t = frame_reset_data.t
-            else:
-                delta_frame_cnt = frame_idx - frame_reset_data.frame_idx
-                t = frame_reset_data.t + delta_frame_cnt * interval_s
+            sim_has_terminated = (
+                latest_progress_type
+                == SimulationEnvironment.ProgressType.TERMINATED.value
+            )
 
-            if show_time and not is_realtime_terminated:
+            # Check if the latest simulation timestep has changed
+            with sim_latest_timestep_value.get_lock():
+                if not np.allclose(
+                    sim_latest_timestep_value.value, latest_rendered_frame_data.t
+                ):
+                    latest_rendered_frame_data.t = sim_latest_timestep_value.value
+                    latest_rendered_frame_data.frame_idx = frame_idx
+                    t = latest_rendered_frame_data.t
+                else:
+                    delta_frame_cnt = frame_idx - latest_rendered_frame_data.frame_idx
+                    t = latest_rendered_frame_data.t + delta_frame_cnt * interval_s
+
+            # Render the simulation time if desired
+            if show_time and not sim_has_terminated:
                 self.ax.set_title(f"t={t : .1f}s")
 
             for element in self.plot_elements:
                 element.update(t)
 
         def on_key_press(event):
+            nonlocal latest_progress_value_type
+
             if event.key == "q":
-                sim_termination_event.set()
+                with sim_progress_value.get_lock():
+                    sim_progress_value.value = (
+                        SimulationEnvironment.ProgressType.TERMINATED.value
+                    )
+
                 plt.close(self.fig)  # Close the figure window
+
             elif event.key == " ":
                 if self.ani_paused:
                     ani.event_source.start()
@@ -108,12 +126,23 @@ class PlotEnvironment:
                     ani.event_source.stop()
                     self.ani_paused = True
 
+                with sim_progress_value.get_lock():
+                    if self.ani_paused:
+                        latest_progress_value_type = sim_progress_value.value
+                        sim_progress_value.value = (
+                            SimulationEnvironment.ProgressType.PAUSED.value
+                        )
+                    else:
+                        sim_progress_value.value = latest_progress_value_type
+                        latest_progress_value_type = None
+
         ani = FuncAnimation(
             self.fig,
             env_update,
             interval=interval_ms,
             repeat=False,
-            fargs=(frame_reset_data,),
+            fargs=(latest_rendered_frame_data,),
+            save_count=128,
         )
 
         self.fig.canvas.mpl_connect("key_press_event", on_key_press)
