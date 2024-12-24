@@ -18,7 +18,7 @@ exceptiongroup==1.2.2
 executing==2.0.1
 filelock==3.15.4
 fonttools==4.55.3
--e git+ssh://git@github.com/micahreich/hybrid_ode_sim.git@e88b65362e8ca826aa2c606b4d2917093a04a3d9#egg=hybrid_ode_sim
+-e git+ssh://git@github.com/micahreich/hybrid_ode_sim.git@7bb73eee22829d1fa59f1d09d0729bcb9511c8f8#egg=hybrid_ode_sim
 identify==2.6.0
 importlib_metadata==8.0.0
 importlib_resources==6.4.5

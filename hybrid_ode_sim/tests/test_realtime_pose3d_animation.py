@@ -65,5 +65,6 @@ if __name__ == "__main__":
 
     env = SimulationEnvironment(simulator=simulator, plot_env=plot_env).run_simulation(
         show_time=True,
+        realtime=True,
         t_range=t_range,
     )
