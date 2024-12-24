@@ -7,11 +7,11 @@
 **Hybrid ODE Sim** is a Python package designed to solve systems of ordinary differential equations (ODEs) that involve both continuous and discrete dynamics. That is, dynamics of the forms:
 
 $$
-\dot{x} = f(t, x) \tag{(1) Continuous}
+\dot{x} = f(t, x) \tag{Continuous}
 $$
 
 $$
-x_{k+1} = f(t_k, x_k) \tag{(2) Discrete}
+x_{k+1} = f\left(t_k, x_k\right) \tag{Discrete}
 \quad
 $$
 
