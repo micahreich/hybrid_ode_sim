@@ -160,7 +160,8 @@ class PlotEnvironment:
 
         def env_update(t):
             if show_time:
-                self.ax.set_title(f"t={t : .1f}s")
+                self.ax.set_title(f"t={t : .1f}s", y=1.0)
+                
             for element in self.plot_elements:
                 element.update(t)
 
@@ -197,6 +198,7 @@ class PlotEnvironment:
             self.logger.info(f"Saving animation to {save_path}")
 
             base_path, _ = os.path.splitext(save_path)
-            ani.save(f"{base_path}.gif", writer=FFMpegWriter(fps=int(self.frame_rate)))
+            ani.save(f"{base_path}.gif",
+                     writer=FFMpegWriter(fps=int(self.frame_rate)))
         else:
             plt.show()

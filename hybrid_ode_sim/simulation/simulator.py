@@ -187,6 +187,8 @@ class Simulator:
             assert (sim_progress_value is not None) and (
                 sim_latest_timestep_value is not None
             ), "Real-time simulation requires progress and latest timestep values to be passed in!"
+            
+            time.sleep(1.0)
 
         self._t = None
         self._terminated_flag = False
@@ -374,7 +376,7 @@ class SimulationEnvironment:
             self.simulator.simulate(t_range=t_range, realtime=realtime)
 
             if self.plot_env is not None:
-                self.plot_env.render(show_time=show_time)
+                self.plot_env.render(show_time=show_time, save=True, save_path="frame.gif")
 
 
 # if __name__ == "__main__":
