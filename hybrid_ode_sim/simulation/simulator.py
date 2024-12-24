@@ -376,7 +376,7 @@ class SimulationEnvironment:
             self.simulator.simulate(t_range=t_range, realtime=realtime)
 
             if self.plot_env is not None:
-                self.plot_env.render(show_time=show_time, save=True, save_path="frame.gif")
+                self.plot_env.render(show_time=show_time)
 
 
 # if __name__ == "__main__":
